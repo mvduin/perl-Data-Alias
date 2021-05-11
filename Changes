@@ -3,6 +3,7 @@ Revision history for Perl module Data::Alias
 1.25  2021-05-??  XMATH
     - Reformatted this file per CPAN::Changes::Spec
     - Switched from Module::Install to ExtUtils::MakeMaker
+    - Fix linker errors with dtrace-enabled perl.
 
 1.24  2021-05-05  XMATH
     - bugfix: copy() no longer produces malformed optrees which under certain
