@@ -1,6 +1,6 @@
 Revision history for Perl module Data::Alias
 
-1.25  2021-05-??  XMATH
+1.25  2021-05-11  XMATH
     - Reformatted this file per CPAN::Changes::Spec
     - Switched from Module::Install to ExtUtils::MakeMaker
     - Fix linker errors with dtrace-enabled perl.
