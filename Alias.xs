@@ -32,18 +32,6 @@
 #define cBOOL(x) ((bool)!!(x))
 #endif
 
-#if defined(USE_DTRACE) && defined(PERL_CORE)
-#undef ENTRY_PROBE
-#undef RETURN_PROBE
-#if (PERL_COMBI_VERSION < 5013008)
-#define ENTRY_PROBE(func, file, line)
-#define RETURN_PROBE(func, file, line)
-#else
-#define ENTRY_PROBE(func, file, line, stash)
-#define RETURN_PROBE(func, file, line, stash)
-#endif
-#endif
-
 #if defined(PERL_CORE) && defined(MULTIPLICITY) && \
 		(PERL_COMBI_VERSION < 5013006)
 #undef PL_sv_placeholder
@@ -107,10 +95,10 @@
 #endif
 
 #ifndef GvGP_set
-#define GvGP_set(gv, val) (GvGP(gv) = val)
+#define GvGP_set(gv, val) (GvGP(gv) = (val))
 #endif
 #ifndef GvCV_set
-#define GvCV_set(gv, val) (GvCV(gv) = val)
+#define GvCV_set(gv, val) (GvCV(gv) = (val))
 #endif
 
 #if (PERL_COMBI_VERSION >= 5009003)
@@ -2019,19 +2007,19 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 #else
 	cv = GvCV((GV*)gvsv);
 #endif
-	if (cv == da_cv)  // Data::Alias::alias
+	if (cv == da_cv)  /* Data::Alias::alias */
 		inside = 1;
-	else if (cv == da_cvc)  // Data::Alias::copy
+	else if (cv == da_cvc)  /* Data::Alias::copy */
 		inside = 0;
 	else
 		return o;
 	if (o->op_private & OPpENTERSUB_AMPER)
 		return o;
 
-	// make sure the temporary ($) prototype for the parser hack is removed
+	/* make sure the temporary ($) prototype for the parser hack is removed */
 	SvPOK_off(cv);
 
-	// tag the op for later recognition
+	/* tag the op for later recognition */
 	o->op_ppaddr = da_tag_rv2cv;
 	if (inside)
 		o->op_flags &= ~OPf_SPECIAL;
@@ -2063,8 +2051,8 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 		s = "";
 	}
 
-	// if not already done, localize da_inside to this compilation scope.
-	// this ensures it will get restored if we bail out with a compile error.
+	/* if not already done, localize da_inside to this compilation scope. */
+	/* this ensures it will get restored if we bail out with a compile error. */
 	if (da_iscope != &cxstack[cxstack_ix]) {
 		SAVEVPTR(da_iscope);
 		SAVEI32(da_inside);
@@ -2072,28 +2060,28 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 	}
 
 #if (PERL_COMBI_VERSION >= 5011002)
-	// since perl 5.11.2, when a sub is called with parenthesized argument the
-	// initial rv2cv op gets destroyed and a new one is created.  deal with that.
+	/* since perl 5.11.2, when a sub is called with parenthesized argument the */
+	/* initial rv2cv op gets destroyed and a new one is created.  deal with that. */
 	if (da_inside < 0) {
 		if (*s != '(' || da_inside != ~inside)
 			Perl_croak(aTHX_ "Data::Alias confused in da_ck_rv2cv");
 	} else
 #endif
 	{
-		// save da_inside on stack, restored in da_ck_entersub
+		/* save da_inside on stack, restored in da_ck_entersub */
 		SPAGAIN;
 		XPUSHs(da_inside ? &PL_sv_yes : &PL_sv_no);
 		PUTBACK;
 	}
 #if (PERL_COMBI_VERSION >= 5011002)
 	if (*s == '(' && da_inside >= 0) {
-		da_inside = ~inside;  // first rv2cv op (will be discarded)
+		da_inside = ~inside;  /* first rv2cv op (will be discarded) */
 		return o;
 	}
 #endif
 	da_inside = inside;
 
-	if (*s == '{') {  // disgusting parser hack for alias BLOCK (and copy BLOCK)
+	if (*s == '{') {  /* disgusting parser hack for alias BLOCK (and copy BLOCK) */
 		I32 shift;
 		int tok;
 		YYSTYPE yylval = PL_yylval;
@@ -2201,17 +2189,17 @@ STATIC OP *da_ck_entersub(pTHX_ OP *esop) {
 	esop->op_ppaddr = da_tag_entersub;
 #if (PERL_COMBI_VERSION >= 5031002)
 	if (!inside && !OpHAS_SIBLING(lsop)) {
-	          /* esop is now a leave, and Perl_scalar/Perl_list expects at least two children.
-		     we insert it in the middle (and null it later) since Perl_scalar()
-		     tries to find the last non-(null/state) op *after* the expected enter.
-		   */
-	          OP *enterop;
-	          NewOp(0, enterop, 1, OP);
-		  enterop->op_type = OP_ENTER;
-		  enterop->op_ppaddr = da_tag_enter;
-		  cLISTOPx(esop)->op_first = enterop;
-		  OpMORESIB_set(enterop, lsop);
-		  OpLASTSIB_set(lsop, esop);
+		/* esop is now a leave, and Perl_scalar/Perl_list expects at least two children.
+		   we insert it in the middle (and null it later) since Perl_scalar()
+		   tries to find the last non-(null/state) op *after* the expected enter.
+		 */
+		OP *enterop;
+		NewOp(0, enterop, 1, OP);
+		enterop->op_type = OP_ENTER;
+		enterop->op_ppaddr = da_tag_enter;
+		cLISTOPx(esop)->op_first = enterop;
+		OpMORESIB_set(enterop, lsop);
+		OpLASTSIB_set(lsop, esop);
 	}
 #endif
 	cLISTOPx(esop)->op_last = lsop;
