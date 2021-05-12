@@ -101,6 +101,10 @@
 #define GvCV_set(gv, val) (GvCV(gv) = (val))
 #endif
 
+#ifndef DEFSV_set
+#define DEFSV_set(val) (DEFSV = (val))
+#endif
+
 #if (PERL_COMBI_VERSION >= 5009003)
 #define DA_FEATURE_MULTICALL 1
 #endif
@@ -250,6 +254,15 @@ static char const msg_no_symref[] =
 #define DA_HAVE_OP_DORASSIGN 1
 #else
 #define DA_HAVE_OP_DORASSIGN (PERL_COMBI_VERSION >= 5009000)
+#endif
+
+#ifndef OPpGREP_LEX
+#define OPpGREP_LEX 0
+#endif
+
+#ifndef ENTER_with_name
+#define ENTER_with_name(name) ENTER
+#define LEAVE_with_name(name) LEAVE
 #endif
 
 #define DA_TIED_ERR "Can't %s alias %s tied %s"
@@ -550,6 +563,155 @@ STATIC OP *DataAlias_pp_refgen(pTHX) {
 			*MARK = da_refgen(aTHX_ *MARK);
 	}
 	RETURN;
+}
+
+/* NOTE: stack use during map evaluation:
+ *
+ *	begin	last	end	count
+ *	-----	-----	-----	-------
+ *	-	m3	m3+1	-		previous stuff on stack
+ *	m3+1	m2-1	m2	m2-m3-1		outputs of previous map iterations
+ *	m2	m1-1	m1	m2-m1		unused
+ *	m1	m0	m0+1	m0-m1+1		inputs of current and remaining map iterations
+ *	m0+1	sp	sp+1	sp-m0		outputs of current map iteration
+ */
+
+/* This is pretty much directly from perl itself, except without making mortal copies */
+STATIC OP *DataAlias_pp_mapwhile(pTHX) {
+	dSP;
+	U8 const gimme = GIMME_V;
+	I32 const items = (SP - PL_stack_base) - *PL_markstack_ptr; /* how many new items */
+	I32 count;
+	I32 shift;
+	SV **src;
+	SV **dst;
+
+	/* first, move source pointer to the next item in the source list */
+	++PL_markstack_ptr[-1];
+
+	/* if there are new items, push them into the destination list */
+	if (items && gimme != G_VOID) {
+		/* might need to make room back there first */
+		if (items > PL_markstack_ptr[-1] - PL_markstack_ptr[-2]) {
+			/* XXX this implementation is very pessimal because the stack
+			 * is repeatedly extended for every set of items.  Is possible
+			 * to do this without any stack extension or copying at all
+			 * by maintaining a separate list over which the map iterates
+			 * (like foreach does). --gsar */
+
+			/* everything in the stack after the destination list moves
+			 * towards the end the stack by the amount of room needed */
+			shift = items - (PL_markstack_ptr[-1] - PL_markstack_ptr[-2]);
+
+			/* items to shift up (accounting for the moved source pointer) */
+			count = (SP - PL_stack_base) - (PL_markstack_ptr[-1] - 1);
+
+			/* This optimization is by Ben Tilly and it does
+			 * things differently from what Sarathy (gsar)
+			 * is describing.  The downside of this optimization is
+			 * that leaves "holes" (uninitialized and hopefully unused areas)
+			 * to the Perl stack, but on the other hand this
+			 * shouldn't be a problem.  If Sarathy's idea gets
+			 * implemented, this optimization should become
+			 * irrelevant.  --jhi */
+			if (shift < count)
+				shift = count; /* Avoid shifting too often --Ben Tilly */
+
+			EXTEND(SP,shift);
+			src = SP;
+			dst = (SP += shift);
+			PL_markstack_ptr[-1] += shift;
+			*PL_markstack_ptr += shift;
+			while (count--)
+				*dst-- = *src--;
+		}
+		/* copy the new items down to the destination list */
+		dst = PL_stack_base + (PL_markstack_ptr[-2] += items) - 1;
+		if (gimme == G_LIST) {
+			/* add returned items to the collection, then clear the current
+			 * temps stack frame *except* for those items. We do this
+			 * splicing the items into the start of the tmps frame (so some
+			 * items may be on the tmps stack twice), then moving
+			 * PL_tmps_floor above them, then freeing the frame. That way,
+			 * the only tmps that accumulate over iterations are the return
+			 * values for map.  We have to do to this way so that everything
+			 * gets correctly freed if we die during the map.  */
+			I32 tmpsbase;
+			I32 i = items;
+			/* make space for the slice */
+			EXTEND_MORTAL(items);
+			tmpsbase = PL_tmps_floor + 1;
+			Move(PL_tmps_stack + tmpsbase,
+				PL_tmps_stack + tmpsbase + items,
+				PL_tmps_ix - PL_tmps_floor,
+				SV*);
+			PL_tmps_ix += items;
+
+			while (i-- > 0) {
+				SV *sv = POPs;
+				*dst-- = sv;
+				PL_tmps_stack[tmpsbase++] = SvREFCNT_inc_simple(sv);
+			}
+			/* clear the stack frame except for the items */
+			PL_tmps_floor += items;
+			FREETMPS;
+			/* FREETMPS may have cleared the TEMP flag on some of the items */
+			i = items;
+			while (i-- > 0)
+				SvTEMP_on(PL_tmps_stack[--tmpsbase]);
+		}
+		else {
+			I32 i = items;
+			/* scalar context: we don't care about which values map returns
+			 * (we use undef here). And so we certainly don't want to do mortal
+			 * copies of meaningless values. */
+			while (i-- > 0) {
+				(void)POPs;
+				*dst-- = &PL_sv_undef;
+			}
+			FREETMPS;
+		}
+	}
+	else {
+		FREETMPS;
+	}
+	LEAVE_with_name("grep_item");					/* exit inner scope */
+
+	/* All done yet? */
+	if (PL_markstack_ptr[-1] > *PL_markstack_ptr) {
+		I32 results;
+
+		(void)POPMARK;				/* pop top */
+		LEAVE_with_name("grep");				/* exit outer scope */
+		(void)POPMARK;				/* pop src */
+		results = --*PL_markstack_ptr - PL_markstack_ptr[-1];
+		(void)POPMARK;				/* pop dst */
+		SP = PL_stack_base + POPMARK;		/* pop original mark */
+		if (gimme == G_SCALAR) {
+			dTARGET;
+			XPUSHi(results);
+		} else if (gimme == G_LIST)
+			SP += results;
+		RETURN;
+	}
+	else {
+		SV *src;
+
+		ENTER_with_name("grep_item");				/* enter inner scope */
+		SAVEVPTR(PL_curpm);
+
+		/* set $_ to the new source item */
+		src = PL_stack_base[PL_markstack_ptr[-1]];
+		if (SvPADTMP(src) && !IS_PADGV(src))
+			src = sv_mortalcopy(src);
+		SvTEMP_off(src);
+		if (PL_op->op_private & OPpGREP_LEX)
+			PAD_SVl(PL_op->op_targ) = src;
+		else
+			DEFSV_set(src);
+
+		RETURNOP(cLOGOP->op_other);
+	}
 }
 
 STATIC OP *DataAlias_pp_anonlist(pTHX) {
@@ -1811,6 +1973,13 @@ STATIC int da_transform(pTHX_ OP *op, int sib) {
 			break;
 		case OP_REFGEN:
 			op->op_ppaddr = DataAlias_pp_refgen;
+			break;
+		case OP_MAPWHILE:
+			op->op_ppaddr = DataAlias_pp_mapwhile;
+			break;
+		case OP_MAPSTART:
+			if (!(tmp = OpSIBLING(kid))) break; /* map expression */
+			MOD(tmp);
 			break;
 		case OP_AASSIGN:
 			op->op_ppaddr = DataAlias_pp_aassign;
