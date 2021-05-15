@@ -668,11 +668,12 @@ STATIC I32 da_avhv_index(pTHX_ AV *av, SV *key) {
 #endif
 
 #ifndef save_hdelete
-STATIC void save_hdelete(pTHX_ HV *hv, SV *keysv) {
+STATIC void DataAlias_save_hdelete(pTHX_ HV *hv, SV *keysv) {
 	STRLEN len;
 	const char *key = SvPV_const(keysv, len);
 	save_delete(hv, savepvn(key, len), SvUTF8(keysv) ? -(I32)len : (I32)len);
 }
+#define save_hdelete(hv, keysv) DataAlias_save_hdelete(aTHX_ (hv), (keysv))
 #endif
 
 STATIC OP *DataAlias_pp_helem(pTHX) {
