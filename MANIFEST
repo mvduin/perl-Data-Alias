@@ -1,10 +1,8 @@
-.gitignore
 Alias.xs
 Changes
 lib/Data/Alias.pm
 Makefile.PL
 MANIFEST
-META.yml
 README
 t/01_deref.t
 t/03_copy.t
