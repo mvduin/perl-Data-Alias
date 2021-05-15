@@ -15,6 +15,7 @@
 #include "config.h"
 #undef USE_DTRACE
 #include "perl.h"
+#undef PERL_CORE
 #include "XSUB.h"
 
 
@@ -30,12 +31,6 @@
 
 #ifndef cBOOL
 #define cBOOL(x) ((bool)!!(x))
-#endif
-
-#if defined(PERL_CORE) && defined(MULTIPLICITY) && \
-		(PERL_COMBI_VERSION < 5013006)
-#undef PL_sv_placeholder
-#define PL_sv_placeholder (*Perl_Gsv_placeholder_ptr(NULL))
 #endif
 
 
