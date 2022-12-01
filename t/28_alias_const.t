@@ -7,8 +7,8 @@ use Test::More tests => 5;
 
 use Data::Alias;
 
-alias my $foo = "foo";
-alias my $bar = $foo;
+alias our $foo = "foo";
+alias our $bar = $foo;
 
 is \$foo, \$bar;
 
