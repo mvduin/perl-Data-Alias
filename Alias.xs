@@ -29,15 +29,17 @@
 				PERL_SUBVERSION)
 #endif
 
+#if (PERL_COMBI_VERSION >= 5037002)
+#define DO KW_DO
+#endif
+
 #ifndef cBOOL
 #define cBOOL(x) ((bool)!!(x))
 #endif
 
-
 #ifndef G_LIST
 #define G_LIST G_ARRAY
 #endif
-
 
 #ifndef RenewOpc
 #if defined(PL_OP_SLAB_ALLOC) || (PERL_COMBI_VERSION >= 5017002)
