@@ -33,6 +33,9 @@
 #define cBOOL(x) ((bool)!!(x))
 #endif
 
+#if (PERL_COMBI_VERSION < 5037002)
+#define KW_DO DO
+#endif
 
 #ifndef G_LIST
 #define G_LIST G_ARRAY
@@ -2090,7 +2093,7 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 		    || tok == PERLY_BRACE_OPEN
 #endif
 		    ) {
-			PL_nexttype[PL_nexttoke++] = DO;
+			PL_nexttype[PL_nexttoke++] = KW_DO;
 			sv_setpv((SV *) cv, "$");
 			if ((PERL_COMBI_VERSION >= 5021004) ||
 					(PERL_COMBI_VERSION >= 5011002 &&
