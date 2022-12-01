@@ -1,8 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use warnings qw(FATAL all);
-no warnings 'void';
+use warnings qw( FATAL all -void );
 use lib 'lib';
 use Test::More tests => 23;
 
