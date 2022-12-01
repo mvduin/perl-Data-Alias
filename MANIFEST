@@ -37,6 +37,7 @@ t/lib/Test/Builder.pm
 t/lib/Test/More.pm
 t/lib/Test/Simple.pm
 t/padrange.t
+t/parens_bug.t
 t/pod_cvg.t
 t/pod_syn.t
 t/threads.t
