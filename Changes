@@ -1,5 +1,8 @@
 Revision history for Perl module Data::Alias
 
+1.27  2022-12-02  XMATH
+    - Fix tests on older perl versions
+
 1.26  2022-12-01  XMATH
     - Fix compile error when using perl 5.37.2 or later
     - Improve diagnostic output from tests
