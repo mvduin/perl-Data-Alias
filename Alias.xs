@@ -239,6 +239,10 @@ static char const msg_no_symref[] =
 
 #define MOD(op) op_lvalue((op), OP_GREPSTART)
 
+#ifndef OPpPAD_STATE
+#define OPpPAD_STATE 0
+#endif
+
 #ifndef SVs_PADBUSY
 #define SVs_PADBUSY 0
 #endif
@@ -832,7 +836,7 @@ STATIC OP *DataAlias_pp_padrange_generic(pTHX_ bool is_single) {
 				default: da_type = DA_ALIAS_PAD; break;
 			}
 		}
-		if (PL_op->op_private & OPpLVAL_INTRO) {
+		if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO) {
 			if (da_type == DA_ALIAS_PAD) {
 				SAVEGENERICSV(PAD_SVl(index));
 				PAD_SVl(index) = &PL_sv_undef;
@@ -861,7 +865,7 @@ STATIC OP *DataAlias_pp_padrange_single(pTHX) {
 STATIC OP *DataAlias_pp_padsv(pTHX) {
 	dSP;
 	IV index = PL_op->op_targ;
-	if (PL_op->op_private & OPpLVAL_INTRO) {
+	if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO) {
 		SAVEGENERICSV(PAD_SVl(index));
 		PAD_SVl(index) = &PL_sv_undef;
 	}
@@ -871,7 +875,7 @@ STATIC OP *DataAlias_pp_padsv(pTHX) {
 
 STATIC OP *DataAlias_pp_padav(pTHX) {
 	dSP; dTARGET;
-	if (PL_op->op_private & OPpLVAL_INTRO)
+	if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO)
 		SAVECLEARSV(PAD_SVl(PL_op->op_targ));
 	XPUSHaa(DA_ALIAS_AV, TARG);
 	RETURN;
@@ -879,7 +883,7 @@ STATIC OP *DataAlias_pp_padav(pTHX) {
 
 STATIC OP *DataAlias_pp_padhv(pTHX) {
 	dSP; dTARGET;
-	if (PL_op->op_private & OPpLVAL_INTRO)
+	if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO)
 		SAVECLEARSV(PAD_SVl(PL_op->op_targ));
 	XPUSHaa(DA_ALIAS_HV, TARG);
 	RETURN;
