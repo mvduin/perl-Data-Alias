@@ -323,7 +323,7 @@ STATIC void da_peep2(pTHX_ OP *o);
 STATIC SV *da_fetch(pTHX_ SV *a1, SV *a2) {
 	switch ((Size_t) a1) {
 	case DA_ALIAS_PAD:
-		return PL_curpad[(Size_t) a2];
+		return PAD_SVl((Size_t) a2);
 	case DA_ALIAS_RV:
 		if (SvTYPE(a2) == SVt_PVGV)
 			a2 = GvSV(a2);
@@ -393,8 +393,8 @@ STATIC void da_restore_gvcv(pTHX_ void *gv_v) {
 STATIC void da_alias(pTHX_ SV *a1, SV *a2, SV *value) {
 	PREP_ALIAS_INC(value);
 	if ((Size_t) a1 == DA_ALIAS_PAD) {
-		SV *old = PL_curpad[(Size_t) a2];
-		PL_curpad[(Size_t) a2] = value;
+		SV *old = PAD_SVl((Size_t) a2);
+		PAD_SVl((Size_t) a2) = value;
 		SvFLAGS(value) |= (SvFLAGS(old) & SVs_PADFLAGS);
 		if (old != &PL_sv_undef)
 			SvREFCNT_dec(old);
