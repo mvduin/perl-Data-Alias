@@ -127,6 +127,7 @@
 #endif
 
 #define DA_HAVE_OP_PADRANGE (PERL_COMBI_VERSION >= 5017006)
+#define DA_HAVE_OP_PADSV_STORE (PERL_COMBI_VERSION >= 5037003)
 
 #if DA_HAVE_OP_PADRANGE
 #define IS_PUSHMARK_OR_PADRANGE(op) \
@@ -390,16 +391,20 @@ STATIC void da_restore_gvcv(pTHX_ void *gv_v) {
 	SvREFCNT_dec((SV *) gv);
 }
 
-STATIC void da_alias(pTHX_ SV *a1, SV *a2, SV *value) {
+STATIC void da_alias_pad(pTHX_ PADOFFSET index, SV *value) {
+	SV *old = PAD_SVl(index);
 	PREP_ALIAS_INC(value);
-	if ((Size_t) a1 == DA_ALIAS_PAD) {
-		SV *old = PAD_SVl((Size_t) a2);
-		PAD_SVl((Size_t) a2) = value;
-		SvFLAGS(value) |= (SvFLAGS(old) & SVs_PADFLAGS);
-		if (old != &PL_sv_undef)
-			SvREFCNT_dec(old);
-		return;
-	}
+	PAD_SVl(index) = value;
+	SvFLAGS(value) |= (SvFLAGS(old) & SVs_PADFLAGS);
+	if (old != &PL_sv_undef)
+		SvREFCNT_dec(old);
+}
+
+STATIC void da_alias(pTHX_ SV *a1, SV *a2, SV *value) {
+	if ((Size_t) a1 == DA_ALIAS_PAD)
+		return da_alias_pad(aTHX_ (PADOFFSET)(Size_t)a2, value);
+
+	PREP_ALIAS_INC(value);
 	switch ((Size_t) a1) {
 		SV **svp;
 		GV *gv;
@@ -862,9 +867,22 @@ STATIC OP *DataAlias_pp_padrange_single(pTHX) {
 
 #endif
 
+#if DA_HAVE_OP_PADSV_STORE
+STATIC OP *DataAlias_pp_padsv_store(pTHX) {
+	dSP;
+	PADOFFSET index = PL_op->op_targ;
+	if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO) {
+		SAVEGENERICSV(PAD_SVl(index));
+		PAD_SVl(index) = &PL_sv_undef;
+	}
+	da_alias_pad(aTHX_ index, TOPs);
+	RETURN;
+}
+#endif
+
 STATIC OP *DataAlias_pp_padsv(pTHX) {
 	dSP;
-	IV index = PL_op->op_targ;
+	PADOFFSET index = PL_op->op_targ;
 	if ((PL_op->op_private & (OPpLVAL_INTRO|OPpPAD_STATE)) == OPpLVAL_INTRO) {
 		SAVEGENERICSV(PAD_SVl(index));
 		PAD_SVl(index) = &PL_sv_undef;
@@ -1815,6 +1833,16 @@ STATIC int da_transform(pTHX_ OP *op, int sib) {
 		case OP_REFGEN:
 			op->op_ppaddr = DataAlias_pp_refgen;
 			break;
+#if DA_HAVE_OP_PADSV_STORE
+		case OP_PADSV_STORE:
+			op->op_ppaddr = DataAlias_pp_padsv_store;
+			MOD(kid);
+			ksib = FALSE;
+			if (PadnameOUTER(PadnamelistARRAY(PL_comppad_name)[op->op_targ])
+					   && ckWARN(WARN_CLOSURE))
+				   Perl_warner(aTHX_ packWARN(WARN_CLOSURE), DA_OUTER_ERR);
+			break;
+#endif
 		case OP_AASSIGN:
 			op->op_ppaddr = DataAlias_pp_aassign;
 			op->op_private = 0;
