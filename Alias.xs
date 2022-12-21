@@ -617,6 +617,9 @@ STATIC OP *DataAlias_pp_aelemfast(pTHX) {
 #endif
 			(AV *) PAD_SV(PL_op->op_targ) : GvAVn(cGVOP_gv);
 	IV index = PL_op->op_private;
+#if (PERL_COMBI_VERSION >= 5019010)
+	index = (I8)index;
+#endif
 	if (!av_fetch(av, index, TRUE))
 		DIE(aTHX_ PL_no_aelem, index);
 	XPUSHaa(av, index);
