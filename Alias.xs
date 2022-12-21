@@ -126,9 +126,10 @@
 #define op_lvalue(o, t) mod(o, t)
 #endif
 
-#define DA_HAVE_OP_PADRANGE (PERL_COMBI_VERSION >= 5017006)
-#define DA_HAVE_OP_PADSV_STORE (PERL_COMBI_VERSION >= 5037003)
-#define DA_HAVE_OP_AELEMFASTLEX_STORE (PERL_COMBI_VERSION >= 5037004)
+#define DA_HAVE_OP_AELEMFAST_LEX	(PERL_COMBI_VERSION >= 5015000)
+#define DA_HAVE_OP_PADRANGE		(PERL_COMBI_VERSION >= 5017006)
+#define DA_HAVE_OP_PADSV_STORE		(PERL_COMBI_VERSION >= 5037003)
+#define DA_HAVE_OP_AELEMFASTLEX_STORE	(PERL_COMBI_VERSION >= 5037004)
 
 #if DA_HAVE_OP_PADRANGE
 #define IS_PUSHMARK_OR_PADRANGE(op) \
@@ -611,7 +612,7 @@ STATIC OP *DataAlias_pp_anonhash(pTHX) {
 STATIC OP *DataAlias_pp_aelemfast(pTHX) {
 	dSP;
 	AV *av =
-#if (PERL_COMBI_VERSION >= 5015000)
+#if DA_HAVE_OP_AELEMFAST_LEX
 		PL_op->op_type == OP_AELEMFAST_LEX ?
 #else
 		(PL_op->op_flags & OPf_SPECIAL) ?
@@ -1659,7 +1660,7 @@ STATIC void da_lvalue(pTHX_ OP *op, int list) {
 	} break;
 #endif
 	case OP_AELEM:     op->op_ppaddr = DataAlias_pp_aelem;     break;
-#if (PERL_COMBI_VERSION >= 5015000)
+#if DA_HAVE_OP_AELEMFAST_LEX
 	case OP_AELEMFAST_LEX:
 #endif
 	case OP_AELEMFAST: op->op_ppaddr = DataAlias_pp_aelemfast; break;
