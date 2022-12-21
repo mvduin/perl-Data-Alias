@@ -480,7 +480,7 @@ STATIC void da_alias(pTHX_ SV *a1, SV *a2, SV *value) {
 	default:
 		switch (SvTYPE(a1)) {
 		case SVt_PVAV:
-			if (!av_store((AV *) a1, (Size_t) a2, value))
+			if (!av_store((AV *) a1, (SSize_t) a2, value))
 				SvREFCNT_dec(value);
 			return;
 		case SVt_PVHV:
