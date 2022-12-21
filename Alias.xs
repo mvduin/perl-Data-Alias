@@ -130,6 +130,7 @@
 #define DA_HAVE_OP_PADRANGE		(PERL_COMBI_VERSION >= 5017006)
 #define DA_HAVE_OP_PADSV_STORE		(PERL_COMBI_VERSION >= 5037003)
 #define DA_HAVE_OP_AELEMFASTLEX_STORE	(PERL_COMBI_VERSION >= 5037004)
+#define DA_HAVE_OP_EMPTYAVHV		(PERL_COMBI_VERSION >= 5037006)
 
 #if DA_HAVE_OP_PADRANGE
 #define IS_PUSHMARK_OR_PADRANGE(op) \
@@ -1935,6 +1936,11 @@ STATIC int da_transform(pTHX_ OP *op, int sib) {
 			if (!(tmp = OpSIBLING(kid))) break; /* first elem */
 			op->op_ppaddr = DataAlias_pp_anonhash;
 		 mod:	do MOD(tmp); while ((tmp = OpSIBLING(tmp)));
+			break;
+#if DA_HAVE_OP_EMPTYAVHV
+		case OP_EMPTYAVHV:
+			break;
+#endif
 		}
 
 		if (sib && OpHAS_SIBLING(op)) {
