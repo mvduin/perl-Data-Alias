@@ -128,6 +128,7 @@
 
 #define DA_HAVE_OP_PADRANGE (PERL_COMBI_VERSION >= 5017006)
 #define DA_HAVE_OP_PADSV_STORE (PERL_COMBI_VERSION >= 5037003)
+#define DA_HAVE_OP_AELEMFASTLEX_STORE (PERL_COMBI_VERSION >= 5037004)
 
 #if DA_HAVE_OP_PADRANGE
 #define IS_PUSHMARK_OR_PADRANGE(op) \
@@ -625,6 +626,23 @@ STATIC OP *DataAlias_pp_aelemfast(pTHX) {
 	XPUSHaa(av, index);
 	RETURN;
 }
+
+#if DA_HAVE_OP_AELEMFASTLEX_STORE
+STATIC OP *DataAlias_pp_aelemfastlex_store(pTHX) {
+	dSP;
+	SV *value = TOPs;
+	/* inlined simplified DataAlias_pp_aelemfast */
+	AV *av = (AV *) PAD_SV(PL_op->op_targ);
+	IV index = (I8)PL_op->op_private;
+	if (!av_fetch(av, index, TRUE))
+		DIE(aTHX_ PL_no_aelem, index);
+	/* inlined simplified DataAlias_pp_sassign */
+	PREP_ALIAS_INC(value);
+	if (!av_store(av, index, value))
+		SvREFCNT_dec(value);
+	RETURN;
+}
+#endif
 
 STATIC bool da_badmagic(pTHX_ SV *sv) {
 	MAGIC *mg = SvMAGIC(sv);
@@ -1844,6 +1862,13 @@ STATIC int da_transform(pTHX_ OP *op, int sib) {
 			if (PadnameOUTER(PadnamelistARRAY(PL_comppad_name)[op->op_targ])
 					   && ckWARN(WARN_CLOSURE))
 				   Perl_warner(aTHX_ packWARN(WARN_CLOSURE), DA_OUTER_ERR);
+			break;
+#endif
+#if DA_HAVE_OP_AELEMFASTLEX_STORE
+		case OP_AELEMFASTLEX_STORE:
+			op->op_ppaddr = DataAlias_pp_aelemfastlex_store;
+			MOD(kid);
+			ksib = FALSE;
 			break;
 #endif
 		case OP_AASSIGN:
