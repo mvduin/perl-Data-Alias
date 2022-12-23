@@ -38,6 +38,7 @@ jobs:
       run: |
         cpanm -v
         cpanm --installdeps --notest .
+        cpanm --notest Devel::CallParser Test::Pod::Coverage Test::Pod
 
     - name: Show Errors on Windows
       if:  ${{ failure() && startsWith( matrix.runner, 'windows-')}}
@@ -65,4 +66,42 @@ jobs:
         make
         make test
 
+
+  test-in-container:
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: [ '5.30', '5.36', '5.36-threaded' ]
+        # tags from https://hub.docker.com/_/perl
+
+    runs-on: ubuntu-latest
+    name: Perl ${{matrix.perl}}
+    container: perl:${{matrix.perl}}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Show Perl Version
+      run: |
+        perl -v
+
+    - name: Install Modules
+      run: |
+        cpanm -v
+        cpanm --installdeps --notest .
+        cpanm --notest Devel::CallParser Test::Pod::Coverage Test::Pod
+
+    - name: Show Errors on Ubuntu
+      if:  ${{ failure() }}
+      run: |
+         cat /home/runner/.cpanm/work/*/build.log
+
+    - name: Run tests
+      env:
+        AUTHOR_TESTING: 1
+        RELEASE_TESTING: 1
+      run: |
+        perl Makefile.PL
+        make
+        make test
 
