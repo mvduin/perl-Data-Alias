@@ -98,6 +98,9 @@
 #ifndef GvCV_set
 #define GvCV_set(gv, val) (GvCV(gv) = (val))
 #endif
+#ifndef isGV_with_GP_on /* < 5.9.5 */
+#define isGV_with_GP_on(gv) SvSCREAM_on(gv)
+#endif
 
 #ifndef isGV_with_GP_on
 #define isGV_with_GP_on(gv) SvSCREAM_on(gv)
